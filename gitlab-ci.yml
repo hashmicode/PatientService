@@ -1,0 +1,45 @@
+image: docker:20.10.16
+
+services:
+  - docker:20.10.16-dind
+
+variables:
+  DOCKER_DRIVER: overlay2
+  SPRING_PROFILES_ACTIVE: test
+
+stages:
+  - build
+  - test
+
+before_script:
+  - apk add --no-cache curl openjdk17
+  - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+
+build:
+  stage: build
+  script:
+    - cd "/builds/"
+    - chmod +x mvnw
+    - ./mvnw clean package -DskipTests
+    - docker build -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:latest
+  artifacts:
+    paths:
+      - "/builds/target/patient-service-0.0.1-SNAPSHOT.jar"
+
+test:
+  stage: test
+  script:
+    - cd "/builds/"
+    - chmod +x mvnw
+    - docker network create test-network
+    - docker run --rm -d --name mongo --network test-network mongo
+    - docker run --rm --name patient-service --network test-network -e SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/patients $CI_REGISTRY_IMAGE:latest &
+    - ./mvnw test
+  timeout: 10m
+  dependencies:
+    - build
+  after_script:
+    - docker stop $(docker ps -aq --filter "name=mongo")
+    - docker stop $(docker ps -aq --filter "name=patient-service")
+    - docker network rm test-network
