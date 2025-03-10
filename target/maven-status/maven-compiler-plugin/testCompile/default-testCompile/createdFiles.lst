@@ -1,0 +1,3 @@
+com/patientmicroservice/patientservice/PatientServiceApplicationTests.class
+com/patientmicroservice/patientservice/controller/PatientControllerTest.class
+com/patientmicroservice/patientservice/service/PatientServiceTest.class
